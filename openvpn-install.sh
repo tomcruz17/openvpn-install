@@ -1,7 +1,7 @@
 #!/bin/bash
 # shellcheck disable=SC1091,SC2164,SC2034,SC1072,SC1073,SC1009
 
-# Secure OpenVPN server installer for Debian, Ubuntu, CentOS, Amazon Linux 2, Fedora, Oracle Linux 8 and Arch Linux
+# Secure OpenVPN server installer for Debian, Ubuntu, CentOS, Amazon Linux 2, Fedora, Oracle Linux 8, Arch Linux and Rocky Linux.
 # https://github.com/angristan/openvpn-install
 
 function isRoot() {
@@ -55,7 +55,7 @@ function checkOS() {
 		if [[ $ID == "fedora" || $ID_LIKE == "fedora" ]]; then
 			OS="fedora"
 		fi
-		if [[ $ID == "centos" ]]; then
+		if [[ $ID == "centos" || $ID == "rocky" ]]; then
 			OS="centos"
 			if [[ ! $VERSION_ID =~ (7|8) ]]; then
 				echo "⚠️ Your version of CentOS is not supported."
@@ -397,6 +397,9 @@ function installQuestions() {
 			;;
 		esac
 	fi
+	until [[ $USERNAME_PASSWORD_AUTH_ENABLED =~ (y|n) ]]; do
+		read -rp "Enable username and password authentication? [y/n]: " -e -i n USERNAME_PASSWORD_AUTH_ENABLED
+	done
 	echo ""
 	echo "Do you want to customize encryption settings?"
 	echo "Unless you know what you're doing, you should stick with the default parameters provided by the script."
@@ -638,6 +641,7 @@ function installOpenVPN() {
 		PROTOCOL_CHOICE=${PROTOCOL_CHOICE:-1}
 		DNS=${DNS:-1}
 		COMPRESSION_ENABLED=${COMPRESSION_ENABLED:-n}
+		USERNAME_PASSWORD_AUTH_ENABLED=${USERNAME_PASSWORD_AUTH_ENABLED:-n}
 		CUSTOMIZE_ENC=${CUSTOMIZE_ENC:-n}
 		CLIENT=${CLIENT:-client}
 		PASS=${PASS:-1}
@@ -871,7 +875,24 @@ ifconfig-pool-persist ipp.txt" >>/etc/openvpn/server.conf
 		fi
 		;;
 	esac
-	echo 'push "redirect-gateway def1 bypass-dhcp"' >>/etc/openvpn/server.conf
+
+	# Allow split-tunnel via custom CIDR blocks (ie. 192.168.0.0/24)
+	if [ ${#TUNNEL_CIDR_BLOCKS[@]} -gt 0 ]; then
+		for cidr in ${TUNNEL_CIDR_BLOCKS[@]}; do
+			echo "Adding $cidr to routed subnets...";
+			ROUTE_IP=$(echo "$cidr" | cut -d"/" -f1)
+			ROUTE_BITS=$(echo "$cidr" | cut -d"/" -f2)
+			case $ROUTE_BITS in
+				8)  ROUTE_MASK="255.0.0.0" ;;
+				16) ROUTE_MASK="255.255.0.0" ;;
+				24) ROUTE_MASK="255.255.255.0" ;;
+				32) ROUTE_MASK="255.255.255.255" ;;
+			esac
+			echo "push \"route ${ROUTE_IP} ${ROUTE_MASK}\"" >> /etc/openvpn/server.conf
+		done
+	else
+		echo 'push "redirect-gateway def1 bypass-dhcp"' >> /etc/openvpn/server.conf
+	fi
 
 	# IPv6 network settings if needed
 	if [[ $IPV6_SUPPORT == 'y' ]]; then
@@ -884,6 +905,21 @@ push "redirect-gateway ipv6"' >>/etc/openvpn/server.conf
 
 	if [[ $COMPRESSION_ENABLED == "y" ]]; then
 		echo "compress $COMPRESSION_ALG" >>/etc/openvpn/server.conf
+	fi
+
+	if [[ $USERNAME_PASSWORD_AUTH_ENABLED == "y" ]]; then
+		# auth plugin needs to exist if USERNAME_PASSWORD_AUTH_ENABLED will be enabled
+		# History shows this plugin has moved locations between versions
+		AUTH_PLUGIN_PATH=$(find /usr/lib -name openvpn-plugin-auth-pam.so)
+		if [[ -z $AUTH_PLUGIN_PATH ]]; then
+			echo
+			echo "ERROR: Cannot find openvpn-plugin-auth-pam.so."
+			echo "This is needed for username/password authentication"
+			echo "See https://openvpn.net/community-resources/how-to/#using-alternative-authentication-methods"
+			exit 1
+		fi
+		echo "plugin $AUTH_PLUGIN_PATH /etc/pam.d/login" >> /etc/openvpn/server.conf
+		echo "duplicate-cn" >> /etc/openvpn/server.conf
 	fi
 
 	if [[ $DH_TYPE == "1" ]]; then
@@ -1069,6 +1105,10 @@ verb 3" >>/etc/openvpn/client-template.txt
 
 	if [[ $COMPRESSION_ENABLED == "y" ]]; then
 		echo "compress $COMPRESSION_ALG" >>/etc/openvpn/client-template.txt
+	fi
+
+	if [[ $USERNAME_PASSWORD_AUTH_ENABLED == "y" ]]; then
+		echo "auth-user-pass" >>/etc/openvpn/client-template.txt
 	fi
 
 	# Generate the custom client.ovpn
