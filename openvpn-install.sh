@@ -860,7 +860,7 @@ ifconfig-pool-persist ipp.txt" >>/etc/openvpn/server.conf
 
 	# Allow split-tunnel via custom CIDR blocks (ie. 192.168.0.0/24)
 	if [ ${#TUNNEL_CIDR_BLOCKS[@]} -gt 0 ]; then
-		for cidr in "${TUNNEL_CIDR_BLOCKS[@]}"; do
+		for cidr in ${TUNNEL_CIDR_BLOCKS[@]}; do
 			echo "Adding $cidr to routed subnets...";
 			ROUTE_IP=$(echo "$cidr" | cut -d"/" -f1)
 			ROUTE_BITS=$(echo "$cidr" | cut -d"/" -f2)
