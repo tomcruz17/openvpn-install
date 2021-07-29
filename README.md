@@ -70,7 +70,7 @@ If you want to customise your installation, you can export them or specify them 
 - `CUSTOMIZE_ENC=n`
 - `CLIENT=clientname`
 - `PASS=1`
-- `USERNAME_PASSWORD_AUTH_ENABLED`
+- `USERNAME_PASSWORD_AUTH_ENABLED=n`
 - `TUNNEL_CIDR_BLOCKS="10.0.1.0/24 10.0.2.0/16"`
 
 If the server is behind NAT, you can specify its endpoint with the `ENDPOINT` variable. If the endpoint is the public IP address which it is behind, you can use `ENDPOINT=$(curl -4 ifconfig.co)` (the script will default to this). The endpoint can be an IPv4 or a domain.
