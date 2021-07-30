@@ -740,10 +740,14 @@ function installOpenVPN() {
 			;;
 		esac
 
-		# Generate a random, alphanumeric identifier of 16 characters for CN and one for server name
-		SERVER_CN="cn_$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)"
+		# If not set, generate a random, alphanumeric identifier of 16 characters for CN and one for server name
+		if [[ -z $SERVER_CN ]]; then
+			SERVER_CN="cn_$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)"
+		fi
 		echo "$SERVER_CN" >SERVER_CN_GENERATED
-		SERVER_NAME="server_$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)"
+		if [[ -z $SERVER_NAME ]]; then
+			SERVER_NAME="server_$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 16 | head -n 1)"
+		fi
 		echo "$SERVER_NAME" >SERVER_NAME_GENERATED
 
 		echo "set_var EASYRSA_REQ_CN $SERVER_CN" >>vars
