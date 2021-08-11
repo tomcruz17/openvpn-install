@@ -646,6 +646,8 @@ function installOpenVPN() {
 		CLIENT=${CLIENT:-client}
 		PASS=${PASS:-1}
 		CONTINUE=${CONTINUE:-y}
+		CA_EXPIRE_IN=${CA_EXPIRE_IN:-3650}
+		CERTS_EXPIRE_IN=${CERTS_EXPIRE_IN:-730}
 
 		# Behind NAT, we'll default to the publicly reachable IPv4/IPv6.
 		if [[ $IPV6_SUPPORT == "y" ]]; then
@@ -751,6 +753,14 @@ function installOpenVPN() {
 		echo "$SERVER_NAME" >SERVER_NAME_GENERATED
 
 		echo "set_var EASYRSA_REQ_CN $SERVER_CN" >>vars
+
+		if [[ -n $CA_EXPIRE_IN ]]; then
+			echo "set_var EASYRSA_CA_EXPIRE $CA_EXPIRE_IN" >>vars
+		fi
+
+		if [[ -n $CERTS_EXPIRE_IN ]]; then
+			echo "set_var EASYRSA_CERT_EXPIRE $CERTS_EXPIRE_IN" >>vars
+		fi
 
 		# Create the PKI, set up the CA, the DH params and the server certificate
 		./easyrsa init-pki
@@ -954,6 +964,7 @@ tls-version-min 1.2
 tls-cipher $CC_CIPHER
 client-config-dir /etc/openvpn/ccd
 status /var/log/openvpn/status.log
+log-append /var/log/openvpn/openvpn.log
 verb 3" >>/etc/openvpn/server.conf
 
 	# Create client-config-dir dir
